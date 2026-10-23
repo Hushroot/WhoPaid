@@ -1,0 +1,32 @@
+body {
+  font-family: Arial, sans-serif;
+  max-width: 500px;
+  margin: 40px auto;
+  padding: 20px;
+}
+label {
+  display: block;
+  margin-top: 15px;
+}
+input,
+select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  margin-top: 5px;
+}
+button {
+  margin-top: 15px;
+  padding: 8px 14px;
+  background-color: #287a49;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+.delete-button {
+    margin-left: 12px;
+    margin-top: 0;
+    padding: 4px 8px;
+    background-color: #a52b2b;
+    font-size: 12px;
+}
