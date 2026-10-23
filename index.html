@@ -53,6 +53,10 @@
 
         <button type="submit">Add expense</button>
 
+        <button type="button" id="cancel-edit" hidden>Cancel edit
+        </button>
+        </form>
+
         <h2>Expenses</h2>
 
         <label for="expense-search">Search expenses</label>
@@ -67,13 +71,21 @@
           <option>Shopping</option>
           <option>Other</option>
         </select>
+
+        <label for="expense-sort">Sort expenses</label>
+        <select id="expense-sort">
+          <option value="added">Added order</option>
+          <option value="highest">Highest amount first</option>
+          <option value="lowest">Lowest amount first</option>
+        </select>
         <ul id="expense-list"></ul>
+        <p id="expenses-message" role="status"></p>
 
         <p>Total spent: <strong id="total-spent">0.00</strong></p>
 
         <h2>Balances</h2>
         <ul id="balances-list"></ul>
-      </form>
+      
     </section>
     <script src="script.js"></script>
   </body>

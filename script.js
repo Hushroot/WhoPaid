@@ -1,3 +1,4 @@
+let editingExpense = null;
 let currentGroupName = "";
 let expenses = [];
 let groupMembers = [];
@@ -25,14 +26,23 @@ form.addEventListener("submit", function (event) {
     alert("Use a different name for each person.");
     return;
   }
+
+  if (
+    expenses.length > 0 &&
+    !confirm(
+      "Creating a group will replace your current group and expenses. Continue?",
+    )
+  ) {
+    return;
+  }
   groupMembers = people;
   currentGroupName = groupName;
 
   displayGroup();
 
   expenses = [];
-  expenseList.replaceChildren();
-  expenseForm.reset();
+  renderExpenses();
+  resetExpenseForm();
   updateTotal();
 });
 
@@ -58,10 +68,17 @@ expenseForm.addEventListener("submit", function (event) {
     paidBy: paidBy,
     category: category,
   };
-  expenses.push(expense);
+  if (editingExpense === null) {
+    expenses.push(expense);
+  } else {
+    editingExpense.name = name;
+    editingExpense.amount = amount;
+    editingExpense.paidBy = paidBy;
+    editingExpense.category = category;
+  }
   updateTotal();
   renderExpenses();
-  expenseForm.reset();
+  resetExpenseForm();
 });
 function updateTotal() {
   let total = 0;
@@ -125,7 +142,20 @@ function renderExpenses() {
     .getElementById("expense-search")
     .value.trim()
     .toLowerCase();
-  expenses.forEach(function (expense) {
+
+  const sortBy = document.getElementById("expense-sort").value;
+  const sortedExpenses = expenses.slice();
+
+  if (sortBy === "highest") {
+    sortedExpenses.sort(function (a, b) {
+      return b.amount - a.amount;
+    });
+  } else if (sortBy === "lowest") {
+    sortedExpenses.sort(function (a, b) {
+      return a.amount - b.amount;
+    });
+  }
+  sortedExpenses.forEach(function (expense) {
     const category = expense.category || "Other";
 
     if (selectedCategory !== "All" && category !== selectedCategory) {
@@ -135,9 +165,9 @@ function renderExpenses() {
     const searchableText = (expense.name + " " + expense.paidBy).toLowerCase();
 
     if (!searchableText.includes(searchText)) {
-        return;
+      return;
     }
-    
+
     const item = document.createElement("li");
 
     item.textContent =
@@ -145,11 +175,28 @@ function renderExpenses() {
       " - " +
       (expense.amount / 100).toFixed(2) +
       " | " +
-      (expense.category || "Other") +
+      category +
       " | paid by " +
       expense.paidBy;
 
     const deleteButton = document.createElement("button");
+    const editButton = document.createElement("button");
+
+    editButton.type = "button";
+    editButton.textContent = "Edit";
+    editButton.className = "edit-button";
+
+    editButton.addEventListener("click", function () {
+      editingExpense = expense;
+      document.getElementById("expense-name").value = expense.name;
+      document.getElementById("expense-amount").value = (expense.amount / 100).toFixed(2);
+      document.getElementById("paid-by").value = expense.paidBy;
+      document.getElementById("expense-category").value = expense.category || "Other";
+
+      expenseForm.querySelector('button[type="submit"]').textContent = "Save changes";
+      document.getElementById("cancel-edit").hidden = false;
+      document.getElementById("expense-name").focus();
+    });
     deleteButton.type = "button";
     deleteButton.textContent = "Delete";
     deleteButton.className = "delete-button";
@@ -160,12 +207,25 @@ function renderExpenses() {
       if (index !== -1) {
         expenses.splice(index, 1);
       }
-      renderExpenses();
+      if (editingExpense === expense) {
+        resetExpenseForm();
+      }
       updateTotal();
     });
+    item.appendChild(editButton);
     item.appendChild(deleteButton);
     expenseList.appendChild(item);
   });
+
+  const message = document.getElementById("expenses-message");
+
+  if (expenses.length === 0) {
+    message.textContent = "No expenses yet.";
+  } else if (expenseList.children.length === 0) {
+    message.textContent = "No matching expenses.";
+  } else {
+    message.textContent = "";
+  }
 }
 function displayGroup() {
   groupInfo.replaceChildren();
@@ -236,6 +296,16 @@ function loadData() {
     alert("Could not load your saved data.");
   }
 }
+
+function resetExpenseForm() {
+  editingExpense = null;
+  expenseForm.reset();
+
+  expenseForm.querySelector('button[type="submit"]').textContent =
+    "Add expense";
+
+  document.getElementById("cancel-edit").hidden = true;
+}
 document
   .getElementById("category-filter")
   .addEventListener("change", renderExpenses);
@@ -243,4 +313,12 @@ document
 document
   .getElementById("expense-search")
   .addEventListener("input", renderExpenses);
+
+document
+  .getElementById("expense-sort")
+  .addEventListener("change", renderExpenses);
+
+document
+  .getElementById("cancel-edit")
+  .addEventListener("click", resetExpenseForm);
 loadData();
