@@ -87,12 +87,14 @@ function updateTotal() {
   });
   document.getElementById("total-spent").textContent = (total / 100).toFixed(2);
   updateBalances();
+  updateCategoryTotals();
   saveData();
 }
 
 function updateBalances() {
   const list = document.getElementById("balances-list");
   list.replaceChildren();
+  const balances = [];
 
   groupMembers.forEach(function (person, index) {
     let balance = 0;
@@ -109,6 +111,11 @@ function updateBalances() {
       }
       balance = balance - share;
     });
+
+    balances.push({
+      name: person,
+      balance: balance,
+    })
     const item = document.createElement("li");
     const amount = (Math.abs(balance) / 100).toFixed(2);
 
@@ -121,6 +128,7 @@ function updateBalances() {
     }
     list.appendChild(item);
   });
+  updatePayments(balances);
 }
 
 function saveData() {
@@ -412,7 +420,75 @@ async function restoreBackup(event) {
   }
 }
 
+function updateCategoryTotals() {
+  const list = document.getElementById("category-totals");
+  const categories = ["Food", "Transport", "Stay", "Shopping", "Other"];
+
+  list.replaceChildren();
+  categories.forEach(function (category) {
+    let total = 0;
+
+    expenses.forEach(function (expense) {
+      const expenseCategory = categories.includes(expense.category)
+        ? expense.category
+        : "Other";
+      
+      if (expenseCategory === category) {
+        total = total + expense.amount;
+      }
+    });
+    const item = document.createElement("li");
+    item.textContent = category + ": " + (total / 100).toFixed(2);
+    list.appendChild(item);
+  });
+}
+
 document
   .getElementById("restore-backup")
   .addEventListener("change", restoreBackup);
+
+
+function updatePayments(balances) {
+  const list = document.getElementById("payments-list");
+  list.replaceChildren();
+
+  const receivers = balances.filter(function (person) {
+    return person.balance > 0;
+  });
+  const payers = balances.filter(function (person) {
+    return person.balance < 0;
+  });
+
+  let receiverIndex = 0;
+
+  payers.forEach(function (payer) {
+    let owed = -payer.balance;
+
+    while (owed > 0 && receiverIndex < receivers.length) {
+      const receiver = receivers[receiverIndex];
+      const amount = Math.min(owed, receiver.balance);
+      const item = document.createElement("li");
+
+      item.textContent =
+        payer.name +
+        " pays " +
+        receiver.name +
+        " " +
+        (amount / 100).toFixed(2);
+      list.appendChild(item);
+
+      owed = owed - amount;
+      receiver.balance = receiver.balance - amount;
+
+      if (receiver.balance === 0) {
+        receiverIndex = receiverIndex + 1;
+      }
+    }
+  });
+  if (list.children.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "Everyone is settled.";
+    list.appendChild(item);
+  }
+}
 loadData();
