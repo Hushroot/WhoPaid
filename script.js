@@ -189,11 +189,15 @@ function renderExpenses() {
     editButton.addEventListener("click", function () {
       editingExpense = expense;
       document.getElementById("expense-name").value = expense.name;
-      document.getElementById("expense-amount").value = (expense.amount / 100).toFixed(2);
+      document.getElementById("expense-amount").value = (
+        expense.amount / 100
+      ).toFixed(2);
       document.getElementById("paid-by").value = expense.paidBy;
-      document.getElementById("expense-category").value = expense.category || "Other";
+      document.getElementById("expense-category").value =
+        expense.category || "Other";
 
-      expenseForm.querySelector('button[type="submit"]').textContent = "Save changes";
+      expenseForm.querySelector('button[type="submit"]').textContent =
+        "Save changes";
       document.getElementById("cancel-edit").hidden = false;
       document.getElementById("expense-name").focus();
     });
@@ -210,6 +214,7 @@ function renderExpenses() {
       if (editingExpense === expense) {
         resetExpenseForm();
       }
+      renderExpenses();
       updateTotal();
     });
     item.appendChild(editButton);
@@ -249,6 +254,36 @@ function displayGroup() {
   document.getElementById("expenses-section").hidden = false;
 }
 
+function validateGroupData(data) {
+  if (
+    !data ||
+    typeof data.groupName !== "string" ||
+    data.groupName.trim() === "" ||
+    !Array.isArray(data.people) ||
+    data.people.length < 2 ||
+    !data.people.every(function (person) {
+      return typeof person === "string" && person.trim() !== "";
+    }) ||
+    new Set(data.people).size !== data.people.length ||
+    !Array.isArray(data.expenses)
+  ) {
+    throw new Error("This file doesn't contain a group");
+  }
+  const validExpenses = data.expenses.every(function (expense) {
+    return (
+      expense &&
+      typeof expense.name === "string" &&
+      expense.name.trim() !== "" &&
+      Number.isSafeInteger(expense.amount) &&
+      expense.amount > 0 &&
+      data.people.includes(expense.paidBy)
+    );
+  });
+  if (!validExpenses) {
+    throw new Error("This backup contains invalid expenses");
+  }
+}
+
 function loadData() {
   try {
     const saved = localStorage.getItem("whopaid");
@@ -257,31 +292,8 @@ function loadData() {
     }
     const data = JSON.parse(saved);
 
-    if (
-      !data ||
-      typeof data.groupName !== "string" ||
-      !Array.isArray(data.people) ||
-      data.people.length < 2 ||
-      !data.people.every(function (person) {
-        return typeof person === "string" && person.trim() !== "";
-      }) ||
-      new Set(data.people).size !== data.people.length ||
-      !Array.isArray(data.expenses)
-    ) {
-      throw new Error("Invalid saved group");
-    }
-    const validExpenses = data.expenses.every(function (expense) {
-      return (
-        expense &&
-        typeof expense.name === "string" &&
-        Number.isSafeInteger(expense.amount) &&
-        expense.amount > 0 &&
-        data.people.includes(expense.paidBy)
-      );
-    });
-    if (!validExpenses) {
-      throw new Error("Invalid saved expenses");
-    }
+    validateGroupData(data);
+
     currentGroupName = data.groupName;
     groupMembers = data.people;
     expenses = data.expenses;
@@ -321,4 +333,86 @@ document
 document
   .getElementById("cancel-edit")
   .addEventListener("click", resetExpenseForm);
+
+function downloadBackup() {
+  const data = {
+    groupName: currentGroupName,
+    people: groupMembers,
+    expenses: expenses,
+  };
+  const file = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "whopaid-backup.json";
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+
+document
+  .getElementById("download-backup")
+  .addEventListener("click", downloadBackup);
+
+async function restoreBackup(event) {
+  const input = event.target;
+  const file = input.files[0];
+  const message = document.getElementById("backup-message");
+
+  if (!file) {
+    return;
+  }
+  message.textContent = "";
+
+  try {
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error("Choose a backup smaller than 10MB");
+    }
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    validateGroupData(data);
+
+    if (!confirm("Replace your current group with this backup?")) {
+      message.textContent = "Restore cancelled";
+      return;
+    }
+    currentGroupName = data.groupName;
+    groupMembers = data.people;
+    expenses = data.expenses;
+
+    document.getElementById("group-name").value = currentGroupName;
+    document.getElementById("people").value = groupMembers.join(", ");
+    document.getElementById("expense-search").value = "";
+    document.getElementById("category-filter").value = "All";
+    document.getElementById("expense-sort").value = "added";
+
+    displayGroup();
+    resetExpenseForm();
+    renderExpenses();
+    updateTotal();
+
+    message.textContent = "Backup restored";
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      message.textContent = "This file is not working";
+    } else {
+      message.textContent = error.message;
+    }
+  } finally {
+    input.value = "";
+  }
+}
+
+document
+  .getElementById("restore-backup")
+  .addEventListener("change", restoreBackup);
 loadData();
