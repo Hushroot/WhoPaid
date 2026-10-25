@@ -1,3 +1,5 @@
+let groups = [];
+let activeGroupId = null;
 let editingExpense = null;
 let currentGroupName = "";
 let expenses = [];
@@ -115,7 +117,7 @@ function updateBalances() {
     balances.push({
       name: person,
       balance: balance,
-    })
+    });
     const item = document.createElement("li");
     const amount = (Math.abs(balance) / 100).toFixed(2);
 
@@ -132,10 +134,26 @@ function updateBalances() {
 }
 
 function saveData() {
+  let group = groups.find(function (group) {
+    return group.id === activeGroupId;
+  });
+  if (!group) {
+    group = {
+      id: crypto.randomUUID(),
+    };
+    groups.push(group);
+    activeGroupId = group.id;
+  }
+  group.groupName = currentGroupName;
+  group.people = groupMembers;
+  group.expenses = expenses;
+
   const data = {
     groupName: currentGroupName,
     people: groupMembers,
     expenses: expenses,
+    groups: groups,
+    activeGroupId: activeGroupId,
   };
   try {
     localStorage.setItem("whopaid", JSON.stringify(data));
@@ -260,6 +278,12 @@ function displayGroup() {
     paidBy.appendChild(option);
   });
   document.getElementById("expenses-section").hidden = false;
+  document.getElementById("expense-count").textContent =
+    "Showing " +
+    expenseList.children.length +
+    " of " +
+    expenses.length +
+    " expenses";
 }
 
 function validateGroupData(data) {
@@ -300,15 +324,61 @@ function loadData() {
     }
     const data = JSON.parse(saved);
 
-    validateGroupData(data);
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid saved data");
+    }
+    let savedGroups;
 
-    currentGroupName = data.groupName;
-    groupMembers = data.people;
-    expenses = data.expenses;
+    if (data.groups === undefined) {
+      validateGroupData(data);
+
+      savedGroups = [{
+        id: crypto.randomUUID(),
+        groupName: data.groupName,
+        people: data.people,
+        expenses: data.expenses,
+      }];
+    } else {
+      if (!Array.isArray(data.groups)) {
+        throw new Error("Invalid groups list");
+      }
+      const ids = new Set();
+
+      data.groups.forEach(function (group) {
+        validateGroupData(group);
+
+        if (
+          typeof group.id !== "string" ||
+          group.id.trim() == "" ||
+          ids.has(group.id)
+        ) {
+          throw new Error("Invalid group ID");
+        }
+        ids.add(group.id);
+      });
+      savedGroups = data.groups;
+    }
+    groups = savedGroups;
+
+    const group = groups.find(function (group) {
+      return group.id === data.activeGroupId;
+    }) || groups[0];
+
+    if (!group) {
+      activeGroupId = null;
+      renderGroupSelect();
+      return;
+    }
+
+    activeGroupId = group.id;
+    currentGroupName = group.groupName;
+    groupMembers = group.people;
+    expenses = group.expenses;
 
     document.getElementById("group-name").value = currentGroupName;
     document.getElementById("people").value = groupMembers.join(", ");
 
+    renderGroupSelect();
     displayGroup();
     renderExpenses();
     updateTotal();
@@ -432,7 +502,7 @@ function updateCategoryTotals() {
       const expenseCategory = categories.includes(expense.category)
         ? expense.category
         : "Other";
-      
+
       if (expenseCategory === category) {
         total = total + expense.amount;
       }
@@ -446,7 +516,6 @@ function updateCategoryTotals() {
 document
   .getElementById("restore-backup")
   .addEventListener("change", restoreBackup);
-
 
 function updatePayments(balances) {
   const list = document.getElementById("payments-list");
@@ -470,11 +539,7 @@ function updatePayments(balances) {
       const item = document.createElement("li");
 
       item.textContent =
-        payer.name +
-        " pays " +
-        receiver.name +
-        " " +
-        (amount / 100).toFixed(2);
+        payer.name + " pays " + receiver.name + " " + (amount / 100).toFixed(2);
       list.appendChild(item);
 
       owed = owed - amount;
@@ -490,5 +555,19 @@ function updatePayments(balances) {
     item.textContent = "Everyone is settled.";
     list.appendChild(item);
   }
+}
+
+function renderGroupSelect() {
+  const select = document.getElementById("group-select");
+  select.replaceChildren();
+
+  groups.forEach(function (group) {
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.textContent = group.groupName;
+    select.appendChild(option);
+  });
+  select.value = activeGroupId || "";
+  document.getElementById("group-controls").hidden = groups.length === 0;
 }
 loadData();

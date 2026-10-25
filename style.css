@@ -36,3 +36,48 @@ button {
   padding: 4px 8px;
   font-size: 12px;
 }
+body {
+  line-height: 1.5;
+}
+h2 {
+  margin-top: 30px;
+}
+#expense-list,
+#balances-list,
+#payments-list,
+#category-totals {
+  list-style: none;
+  padding: 0;
+}
+#expense-list li,
+#balances-list li,
+#payments-list li,
+#category-totals li {
+  padding: 12px 0;
+  border-bottom: 1px solid #ddd;
+  overflow-wrap: anywhere;
+}
+#expense-list button {
+  margin-top: 8px;
+}
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid #287a49;
+  outline-offset: 3px;
+}
+@media (max-width: 540px) {
+  body {
+    margin: 16px auto;
+    padding: 16px;
+  }
+}
+details {
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid #ddd;
+}
+summary {
+  cursor: pointer;
+  font-weight: bold;
+}
